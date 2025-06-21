@@ -1,11 +1,10 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_sound/flutter_sound.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:path_provider/path_provider.dart';
 
 class ChatPage extends StatefulWidget {
-  const ChatPage({Key? key}) : super(key: key);
+  const ChatPage({super.key});
 
   @override
   State<ChatPage> createState() => _ChatPageState();
@@ -36,6 +35,7 @@ class _ChatPageState extends State<ChatPage> {
 
   Future<void> _stopRecording() async {
     await _recorder.stopRecorder();
+    if (!mounted) return;  // Check if widget is still in the tree
     setState(() => _isRecording = false);
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text('Audio recorded in: $_recordedPath')),
