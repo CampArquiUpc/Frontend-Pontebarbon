@@ -1,7 +1,7 @@
 name: pontebarbon
 description: "Aplicacion educativa financiera con IA"
 # The following line prevents the package from being accidentally published to
-# pub.dev using `flutter pub publish`. This is preferred for private packages.
+# pub.dev using `flutter pub publish`. Preferred for private packages.
 publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 
 version: 1.0.0+1
@@ -23,6 +23,8 @@ dependencies:
   flutter_sound: ^9.28.0
   permission_handler: ^12.0.0+1
   path_provider: ^2.0.15
+  sqflite: ^2.3.2
+  path: ^1.9.0
 
 dev_dependencies:
   flutter_test:
