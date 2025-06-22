@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:pontebarbon/screens/home_page.dart';
+import 'package:pontebarbon/screens/login_screen.dart';
 import 'package:pontebarbon/screens/welcome_page.dart';
 
 void main() {
@@ -17,7 +19,12 @@ class MyApp extends StatelessWidget {
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.blue),
         useMaterial3: true,
       ),
-      home: const WelcomePage(),
+      initialRoute: '/',
+      routes: {
+        '/': (context) => const WelcomePage(),
+        '/login': (context) => const LoginScreen(),
+        '/home': (context) => const HomePage(),
+      },
     );
   }
 }

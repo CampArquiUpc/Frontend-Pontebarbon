@@ -86,6 +86,7 @@ class WelcomePage extends StatelessWidget {
                       child: ElevatedButton(
                         onPressed: () {
                           // Navigate to login page
+                          Navigator.of(context).pushNamed('/login');
                         },
                         style: ElevatedButton.styleFrom(
                           backgroundColor: Colors.blue,
