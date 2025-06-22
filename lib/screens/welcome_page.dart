@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:pontebarbon/screens/registration/step1_profile.dart';
 
 class WelcomePage extends StatelessWidget {
   const WelcomePage({super.key});
@@ -66,7 +67,11 @@ class WelcomePage extends StatelessWidget {
                     Expanded(
                       child: OutlinedButton(
                         onPressed: () {
-                          // Navigate to register page
+                          // Navigate to register page (step 1)
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(builder: (_) => const CreateProfileScreen()),
+                          );
                         },
                         style: OutlinedButton.styleFrom(
                           side: const BorderSide(color: Colors.blue),
@@ -104,7 +109,6 @@ class WelcomePage extends StatelessWidget {
                     ),
                   ],
                 ),
-
                 const SizedBox(height: 32),
               ],
             ),

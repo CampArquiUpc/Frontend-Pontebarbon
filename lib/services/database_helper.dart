@@ -16,15 +16,31 @@ class DatabaseHelper {
 
     return openDatabase(
       path,
-      version: 1,
+      version: 2,
       onCreate: (db, version) async {
         await db.execute('''
           CREATE TABLE users (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             email TEXT UNIQUE NOT NULL,
-            password TEXT NOT NULL
+            password TEXT NOT NULL,
+            fullName TEXT,
+            dateOfBirth TEXT,
+            gender TEXT,
+            isSaving INTEGER,
+            incomeRange TEXT,
+            financialGoals TEXT
           )
         ''');
+      },
+      onUpgrade: (db, oldVersion, newVersion) async {
+        if (oldVersion < 2) {
+          await db.execute('ALTER TABLE users ADD COLUMN fullName TEXT');
+          await db.execute('ALTER TABLE users ADD COLUMN dateOfBirth TEXT');
+          await db.execute('ALTER TABLE users ADD COLUMN gender TEXT');
+          await db.execute('ALTER TABLE users ADD COLUMN isSaving INTEGER');
+          await db.execute('ALTER TABLE users ADD COLUMN incomeRange TEXT');
+          await db.execute('ALTER TABLE users ADD COLUMN financialGoals TEXT');
+        }
       },
     );
   }
