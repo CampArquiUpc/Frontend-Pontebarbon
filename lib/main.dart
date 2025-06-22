@@ -6,7 +6,6 @@ import 'package:pontebarbon/screens/home_page.dart';
 import 'package:pontebarbon/screens/login_screen.dart';
 import 'package:pontebarbon/screens/welcome_page.dart';
 import 'package:pontebarbon/screens/registration/step1_profile.dart';
-import 'package:intl/intl.dart';
 
 void main() {
   runApp(const MyApp());
