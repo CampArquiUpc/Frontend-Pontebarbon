@@ -2,11 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:pontebarbon/screens/chat_page.dart';
 import 'package:pontebarbon/screens/welcome_page.dart';
 import 'package:pontebarbon/services/database_helper.dart';
+import 'package:pontebarbon/screens/profile_page.dart';
 
 class HomePage extends StatefulWidget {
   final String? firstName;
 
-  const HomePage({Key? key, this.firstName}) : super(key: key);
+  const HomePage({super.key, this.firstName});
 
   @override
   State<HomePage> createState() => _HomePageState();
