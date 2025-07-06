@@ -1,9 +1,66 @@
 import 'package:flutter/material.dart';
 import 'package:pontebarbon/screens/chat_page.dart';
 import 'package:pontebarbon/screens/welcome_page.dart';
+import 'package:pontebarbon/services/database_helper.dart';
 
-class HomePage extends StatelessWidget {
-  const HomePage({super.key});
+class HomePage extends StatefulWidget {
+  final String? firstName;
+
+  const HomePage({Key? key, this.firstName}) : super(key: key);
+
+  @override
+  State<HomePage> createState() => _HomePageState();
+}
+
+class _HomePageState extends State<HomePage> {
+  String _userName = "User";
+  final DatabaseHelper _databaseHelper = DatabaseHelper();
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadUserData();
+  }
+
+  Future<void> _loadUserData() async {
+    setState(() {
+      _isLoading = true;
+    });
+
+    // If firstName was passed via navigation, use it
+    if (widget.firstName != null && widget.firstName!
+    .isNotEmpty) {
+      setState(() {
+        _userName = widget.firstName!;
+        _isLoading = false;
+      });
+      return;
+    }
+
+    // Otherwise, try to get the user data from the database
+    try {
+      final users = await _databaseHelper.getUsers();
+      if (users.isNotEmpty) {
+        final userData = users.first;
+
+        // Extract the first name from fullName (assuming format "First Last")
+        final fullName = userData['fullName'] as String?;
+        if (fullName != null && fullName.isNotEmpty) {
+          final firstName = fullName.split(' ').first;
+          setState(() {
+            _userName = firstName;
+          });
+        }
+      }
+    } catch (e) {
+      debugPrint('Error loading user data: $e');
+    } finally {
+      setState(() {
+        _isLoading = false;
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -19,7 +76,9 @@ class HomePage extends StatelessWidget {
           ),
         ],
       ),
-      body: SingleChildScrollView(
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : SingleChildScrollView(
         padding: const EdgeInsets.all(16.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -84,8 +143,8 @@ class HomePage extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'Hi, Carlos!',
-                style: TextStyle(
+                'Hi, $_userName!',
+                style: const TextStyle(
                   fontSize: 24,
                   fontWeight: FontWeight.bold,
                 ),
@@ -258,100 +317,6 @@ class HomePage extends StatelessWidget {
           ),
         ),
       ],
-    );
-  }
-}
-
-// Profile Page implementation
-class ProfilePage extends StatelessWidget {
-  const ProfilePage({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Profile'),
-      ),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            const SizedBox(height: 20),
-
-            // Avatar
-            CircleAvatar(
-              radius: 50,
-              backgroundColor: Colors.grey.shade200,
-              child: Icon(
-                Icons.person,
-                size: 60,
-                color: Colors.grey.shade600,
-              ),
-            ),
-            const SizedBox(height: 24),
-
-            // User Information
-            _buildInfoCard('Name', 'Carlos'),
-            _buildInfoCard('Email', 'carlos@example.com'),
-            _buildInfoCard('Date of Birth', '01/01/1990'),
-            _buildInfoCard('Gender', 'Male'),
-
-            const Spacer(),
-
-            // Logout Button
-            ElevatedButton(
-              onPressed: () {
-                // Clear session (simulated)
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Logging out...')),
-                );
-
-                // Navigate to welcome page
-                Navigator.of(context).pushAndRemoveUntil(
-                  MaterialPageRoute(
-                    builder: (context) => const WelcomePage(),
-                  ),
-                      (route) => false,
-                );
-              },
-              style: ElevatedButton.styleFrom(
-                minimumSize: const Size.fromHeight(50),
-              ),
-              child: const Text('Log Out'),
-            ),
-            const SizedBox(height: 24),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildInfoCard(String label, String value) {
-    return Card(
-      margin: const EdgeInsets.only(bottom: 12),
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Row(
-          children: [
-            Text(
-              label,
-              style: const TextStyle(
-                fontWeight: FontWeight.bold,
-                fontSize: 16,
-              ),
-            ),
-            const Spacer(),
-            Text(
-              value,
-              style: TextStyle(
-                color: Colors.grey.shade700,
-                fontSize: 16,
-              ),
-            ),
-          ],
-        ),
-      ),
     );
   }
 }

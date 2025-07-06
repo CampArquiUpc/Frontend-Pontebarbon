@@ -51,6 +51,9 @@ class _LoginScreenState extends State<LoginScreen> {
         _isLoading = true;
       });
 
+      // Store the context before async operations
+      final currentContext = context;
+
       try {
         // Check credentials against the database
         final isValid = await _databaseHelper.validateUser(
@@ -59,20 +62,48 @@ class _LoginScreenState extends State<LoginScreen> {
         );
 
         if (isValid) {
-          // Navigate to home page on successful login
-          Navigator.of(context).pushReplacement(
-            MaterialPageRoute(builder: (context) => const HomePage()),
+          // Get user data for the logged-in user
+          final db = await _databaseHelper.database;
+          final users = await db.query(
+            'users',
+            where: 'email = ?',
+            whereArgs: [_emailController.text.trim()],
           );
+
+          if (users.isNotEmpty) {
+            final userData = users.first;
+            final fullName = userData['full_name'] as String?;
+            String firstName = '';
+
+            if (fullName != null && fullName.isNotEmpty) {
+              firstName = fullName.split(' ').first;
+            }
+
+            // Navigate to home page with user data
+            Navigator.of(context).pushReplacement(
+              MaterialPageRoute(
+                builder: (context) => HomePage(firstName: firstName),
+              ),
+            );
+          } else {
+            // Navigate without user data (fallback)
+            Navigator.of(context).pushReplacement(
+              MaterialPageRoute(builder: (context) => const HomePage()),
+            );
+          }
         } else {
           // Show error for invalid credentials
           _showErrorSnackBar('Invalid email or password');
         }
       } catch (e) {
+        if (!mounted) return; // Safety check
         _showErrorSnackBar('An error occurred: ${e.toString()}');
       } finally {
-        setState(() {
-          _isLoading = false;
-        });
+        if (mounted) { // Safety check
+          setState(() {
+            _isLoading = false;
+          });
+        }
       }
     }
   }
