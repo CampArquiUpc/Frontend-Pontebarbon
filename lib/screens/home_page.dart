@@ -13,6 +13,7 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> {
   bool _isLoading = true;
+  int _currentIndex = 0;
 
   @override
   void initState() {
@@ -34,7 +35,8 @@ class _HomePageState extends State<HomePage> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Dashboard'),
+        automaticallyImplyLeading: false, // Hide the back button
+        title: Text(_currentIndex == 0 ? 'Dashboard' : 'Profile'),
         actions: [
           IconButton(
             icon: const Icon(Icons.notifications),
@@ -44,28 +46,15 @@ class _HomePageState extends State<HomePage> {
           ),
         ],
       ),
+      // Use a conditional to determine which page to show based on currentIndex
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
-          : SingleChildScrollView(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Header Section
-            _buildHeaderSection(),
-            const SizedBox(height: 24),
-
-            // Financial Snapshot Section
-            _buildFinancialSnapshotSection(),
-            const SizedBox(height: 24),
-
-            // Quick Links Section
-            _buildQuickLinksSection(context),
-          ],
-        ),
-      ),
+          : _currentIndex == 0
+          ? _buildHomeContent()
+          : const ProfilePage(),
       bottomNavigationBar: BottomNavigationBar(
-        currentIndex: 0,
+        // Use the _currentIndex variable for the current index
+        currentIndex: _currentIndex,
         items: const [
           BottomNavigationBarItem(
             icon: Icon(Icons.home),
@@ -77,15 +66,32 @@ class _HomePageState extends State<HomePage> {
           ),
         ],
         onTap: (index) {
-          if (index == 1) {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) => const ProfilePage(),
-              ),
-            );
-          }
+          // Update the state when a new tab is selected
+          setState(() {
+            _currentIndex = index;
+          });
         },
+      ),
+    );
+  }
+
+  Widget _buildHomeContent() {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Header Section
+          _buildHeaderSection(),
+          const SizedBox(height: 24),
+
+          // Financial Snapshot Section
+          _buildFinancialSnapshotSection(),
+          const SizedBox(height: 24),
+
+          // Quick Links Section
+          _buildQuickLinksSection(context),
+        ],
       ),
     );
   }
