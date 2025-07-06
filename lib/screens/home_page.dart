@@ -30,8 +30,7 @@ class _HomePageState extends State<HomePage> {
   @override
   Widget build(BuildContext context) {
     // Get user data from provider
-    final userProvider = Provider.of<UserProvider>(context);
-    final firstName = userProvider.firstName;
+    Provider.of<UserProvider>(context);
 
     return Scaffold(
       appBar: AppBar(

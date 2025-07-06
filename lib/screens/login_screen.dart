@@ -8,7 +8,7 @@ class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
 
   @override
-  _LoginScreenState createState() => _LoginScreenState();
+  State<LoginScreen> createState() => _LoginScreenState();
 }
 
 class _LoginScreenState extends State<LoginScreen> {
@@ -60,6 +60,8 @@ class _LoginScreenState extends State<LoginScreen> {
           _passwordController.text,
         );
 
+        if (!mounted) return; // Check if still mounted after async operation
+
         if (isValid) {
           // Get user data for the logged-in user
           final db = await _databaseHelper.database;
@@ -69,18 +71,24 @@ class _LoginScreenState extends State<LoginScreen> {
             whereArgs: [_emailController.text.trim()],
           );
 
+          if (!mounted) return; // Check after another async operation
+
           if (users.isNotEmpty) {
             final userData = users.first;
             final fullName = userData['fullName'] as String?;
             final email = userData['email'] as String?;
-            String firstName = '';
 
             // Update the user provider with the logged-in user's data
             Provider.of<UserProvider>(context, listen: false)
                 .setUserData(fullName: fullName, email: email);
 
             if (fullName != null && fullName.isNotEmpty) {
-              firstName = fullName.split(' ').first;
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('Welcome back, $fullName!'),
+                  backgroundColor: Colors.green,
+                ),
+              );
             }
 
             // Navigate to home page with user data
