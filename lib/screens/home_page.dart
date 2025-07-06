@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:pontebarbon/screens/chat_page.dart';
-import 'package:pontebarbon/screens/welcome_page.dart';
 import 'package:pontebarbon/services/database_helper.dart';
 import 'package:pontebarbon/screens/profile_page.dart';
 
@@ -30,8 +29,7 @@ class _HomePageState extends State<HomePage> {
     });
 
     // If firstName was passed via navigation, use it
-    if (widget.firstName != null && widget.firstName!
-    .isNotEmpty) {
+    if (widget.firstName != null && widget.firstName!.isNotEmpty) {
       setState(() {
         _userName = widget.firstName!;
         _isLoading = false;

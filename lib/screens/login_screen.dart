@@ -72,7 +72,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
           if (users.isNotEmpty) {
             final userData = users.first;
-            final fullName = userData['full_name'] as String?;
+            final fullName = userData['fullName'] as String?;
             String firstName = '';
 
             if (fullName != null && fullName.isNotEmpty) {
