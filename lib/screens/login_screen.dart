@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:pontebarbon/services/database_helper.dart';
 import 'package:pontebarbon/screens/home_page.dart';
+import 'package:pontebarbon/providers/user_provider.dart';
+import 'package:provider/provider.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -51,9 +53,6 @@ class _LoginScreenState extends State<LoginScreen> {
         _isLoading = true;
       });
 
-      // Store the context before async operations
-      final currentContext = context;
-
       try {
         // Check credentials against the database
         final isValid = await _databaseHelper.validateUser(
@@ -73,7 +72,12 @@ class _LoginScreenState extends State<LoginScreen> {
           if (users.isNotEmpty) {
             final userData = users.first;
             final fullName = userData['fullName'] as String?;
+            final email = userData['email'] as String?;
             String firstName = '';
+
+            // Update the user provider with the logged-in user's data
+            Provider.of<UserProvider>(context, listen: false)
+                .setUserData(fullName: fullName, email: email);
 
             if (fullName != null && fullName.isNotEmpty) {
               firstName = fullName.split(' ').first;
@@ -82,7 +86,7 @@ class _LoginScreenState extends State<LoginScreen> {
             // Navigate to home page with user data
             Navigator.of(context).pushReplacement(
               MaterialPageRoute(
-                builder: (context) => HomePage(firstName: firstName),
+                builder: (context) => HomePage(),
               ),
             );
           } else {

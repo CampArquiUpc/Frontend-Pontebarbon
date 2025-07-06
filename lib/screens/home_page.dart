@@ -1,68 +1,38 @@
 import 'package:flutter/material.dart';
 import 'package:pontebarbon/screens/chat_page.dart';
-import 'package:pontebarbon/services/database_helper.dart';
 import 'package:pontebarbon/screens/profile_page.dart';
+import 'package:pontebarbon/providers/user_provider.dart';
+import 'package:provider/provider.dart';
 
 class HomePage extends StatefulWidget {
-  final String? firstName;
-
-  const HomePage({super.key, this.firstName});
+  const HomePage({super.key});
 
   @override
   State<HomePage> createState() => _HomePageState();
 }
 
 class _HomePageState extends State<HomePage> {
-  String _userName = "User";
-  final DatabaseHelper _databaseHelper = DatabaseHelper();
   bool _isLoading = true;
 
   @override
   void initState() {
     super.initState();
-    _loadUserData();
-  }
-
-  Future<void> _loadUserData() async {
-    setState(() {
-      _isLoading = true;
-    });
-
-    // If firstName was passed via navigation, use it
-    if (widget.firstName != null && widget.firstName!.isNotEmpty) {
-      setState(() {
-        _userName = widget.firstName!;
-        _isLoading = false;
-      });
-      return;
-    }
-
-    // Otherwise, try to get the user data from the database
-    try {
-      final users = await _databaseHelper.getUsers();
-      if (users.isNotEmpty) {
-        final userData = users.first;
-
-        // Extract the first name from fullName (assuming format "First Last")
-        final fullName = userData['fullName'] as String?;
-        if (fullName != null && fullName.isNotEmpty) {
-          final firstName = fullName.split(' ').first;
-          setState(() {
-            _userName = firstName;
-          });
-        }
+    // Simulate loading or perform actual data loading
+    Future.delayed(Duration(milliseconds: 500), () {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
       }
-    } catch (e) {
-      debugPrint('Error loading user data: $e');
-    } finally {
-      setState(() {
-        _isLoading = false;
-      });
-    }
+    });
   }
 
   @override
   Widget build(BuildContext context) {
+    // Get user data from provider
+    final userProvider = Provider.of<UserProvider>(context);
+    final firstName = userProvider.firstName;
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Dashboard'),
@@ -122,6 +92,8 @@ class _HomePageState extends State<HomePage> {
   }
 
   Widget _buildHeaderSection() {
+    final userProvider = Provider.of<UserProvider>(context);
+
     return Row(
       children: [
         // User Avatar
@@ -142,7 +114,7 @@ class _HomePageState extends State<HomePage> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'Hi, $_userName!',
+                'Hi, ${userProvider.firstName}!',
                 style: const TextStyle(
                   fontSize: 24,
                   fontWeight: FontWeight.bold,

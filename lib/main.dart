@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:pontebarbon/providers/registration_provider.dart';
+import 'package:pontebarbon/providers/user_provider.dart';
 import 'package:pontebarbon/screens/home_page.dart';
 import 'package:pontebarbon/screens/login_screen.dart';
 import 'package:pontebarbon/screens/welcome_page.dart';
@@ -18,6 +19,7 @@ class MyApp extends StatelessWidget {
     return MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (_) => RegistrationProvider()),
+        ChangeNotifierProvider(create: (_) => UserProvider()),
       ],
       child: MaterialApp(
         title: 'PonteBarbon',
