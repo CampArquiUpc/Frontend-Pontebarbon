@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_sound/flutter_sound.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:path_provider/path_provider.dart';
+import 'dart:io';
+import '../services/audio_transcription_service.dart';
 
 class ChatPage extends StatefulWidget {
   const ChatPage({super.key});
@@ -15,6 +17,10 @@ class _ChatPageState extends State<ChatPage> {
   bool _isRecording = false;
   String? _recordedPath;
   final TextEditingController _messageController = TextEditingController();
+  String? _transcriptionResult;
+  final int _userId = 1; // Cambia esto según tu lógica de usuario
+  final AudioTranscriptionService _transcriptionService = AudioTranscriptionService();
+  bool _isLoading = false;
 
   @override
   void initState() {
@@ -23,24 +29,94 @@ class _ChatPageState extends State<ChatPage> {
   }
 
   Future<void> _initRecorder() async {
-    await Permission.microphone.request();
+    var status = await Permission.microphone.request();
+    if (status != PermissionStatus.granted) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Permiso de micrófono denegado. No se puede grabar audio.')),
+        );
+      }
+      throw Exception('Permiso de micrófono denegado');
+    }
     await _recorder.openRecorder();
   }
 
   Future<void> _startRecording() async {
+    // Solicita el permiso justo antes de grabar
+    var status = await Permission.microphone.status;
+    if (status != PermissionStatus.granted) {
+      status = await Permission.microphone.request();
+      if (status != PermissionStatus.granted) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Permiso de micrófono denegado. No se puede grabar audio.')),
+          );
+        }
+        return;
+      }
+    }
     final dir = await getApplicationDocumentsDirectory();
-    _recordedPath = '${dir.path}/recording.aac';
-    await _recorder.startRecorder(toFile: _recordedPath);
+    _recordedPath = '${dir.path}/recording.wav';
+    await _recorder.startRecorder(
+      toFile: _recordedPath,
+      codec: Codec.pcm16WAV,
+      sampleRate: 16000, // <-- Sample rate ajustado a 16000 Hz
+    );
     setState(() => _isRecording = true);
+  }
+
+  Future<String?> _copyRecordingToDownloads(String privatePath) async {
+    try {
+      // Ruta pública real de descargas
+      final downloadsDir = Directory('/storage/emulated/0/Download');
+      if (!await downloadsDir.exists()) {
+        await downloadsDir.create(recursive: true);
+      }
+      final fileName = privatePath.split('/').last;
+      final newPath = "${downloadsDir.path}/$fileName";
+      final newFile = await File(privatePath).copy(newPath);
+      print('Archivo copiado a carpeta pública: ${newFile.path}');
+      return newFile.path;
+    } catch (e) {
+      print('Error copiando a carpeta pública: $e');
+      return null;
+    }
   }
 
   Future<void> _stopRecording() async {
     await _recorder.stopRecorder();
-    if (!mounted) return;  // Check if widget is still in the tree
+    if (!mounted) return;
     setState(() => _isRecording = false);
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Audio recorded in: $_recordedPath')),
+      SnackBar(content: Text('Audio grabado en: $_recordedPath')),
     );
+    if (_recordedPath != null) {
+      print('Ruta del archivo grabado: $_recordedPath');
+      final file = File(_recordedPath!);
+      print('Tamaño del archivo: \\n${await file.length()} bytes');
+      // Copiar a carpeta pública
+      final publicPath = await _copyRecordingToDownloads(_recordedPath!);
+      if (publicPath != null) {
+        print('Puedes extraer el archivo con: adb pull $publicPath <destino>');
+      } else {
+        print('No se pudo copiar el archivo a carpeta pública');
+      }
+      setState(() { _isLoading = true; });
+      try {
+        final result = await _transcriptionService.transcribeAudio(audioFile: file, userId: _userId);
+        print('Transcripción recibida:\n${result['transcription'] ?? result['error'] ?? 'Sin respuesta'}');
+        setState(() {
+          _transcriptionResult = result['transcription'] ?? result['error'] ?? 'Sin respuesta';
+        });
+      } catch (e) {
+        print('Error en la transcripción: $e');
+        setState(() {
+          _transcriptionResult = 'Error en la transcripción';
+        });
+      } finally {
+        setState(() { _isLoading = false; });
+      }
+    }
   }
 
   @override
@@ -54,38 +130,55 @@ class _ChatPageState extends State<ChatPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text("Conversational Interaction")),
-      body: Column(
+      body: Stack(
         children: [
-          // Chat messages area (currently empty)
-          Expanded(
-            child: Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const Text("Your chat history will appear here"),
-                  const SizedBox(height: 20),
-                  // Recording indicator
-                  if (_isRecording)
-                    const Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(Icons.mic, color: Colors.red),
-                        SizedBox(width: 8),
-                        Text("Recording audio...",
-                          style: TextStyle(
-                            color: Colors.red,
-                            fontWeight: FontWeight.bold,
-                          ),
+          Column(
+            children: [
+              if (_transcriptionResult != null)
+                Padding(
+                  padding: const EdgeInsets.all(8.0),
+                  child: Text('Transcripción:\n$_transcriptionResult'),
+                ),
+
+              // Chat messages area (currently empty)
+              Expanded(
+                child: Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Text("Your chat history will appear here"),
+                      const SizedBox(height: 20),
+                      // Recording indicator
+                      if (_isRecording)
+                        const Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(Icons.mic, color: Colors.red),
+                            SizedBox(width: 8),
+                            Text("Recording audio...",
+                              style: TextStyle(
+                                color: Colors.red,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
                         ),
-                      ],
-                    ),
-                ],
+                    ],
+                  ),
+                ),
+              ),
+
+              // Bottom input section
+              _buildInputSection(),
+            ],
+          ),
+          if (_isLoading)
+            Container(
+              color: Colors.black.withOpacity(0.5),
+              child: const Center(
+                child: CircularProgressIndicator(),
               ),
             ),
-          ),
-
-          // Bottom input section
-          _buildInputSection(),
         ],
       ),
     );
