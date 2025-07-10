@@ -3,6 +3,7 @@ import 'package:flutter_sound/flutter_sound.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:path_provider/path_provider.dart';
 import 'dart:io';
+import 'dart:convert';
 import '../services/audio_transcription_service.dart';
 
 class ChatPage extends StatefulWidget {
@@ -10,6 +11,14 @@ class ChatPage extends StatefulWidget {
 
   @override
   State<ChatPage> createState() => _ChatPageState();
+}
+
+class ChatMessage {
+  final String text;
+  final bool isUser;
+  final bool isAudio;
+  final Map<String, dynamic>? expenseData;
+  ChatMessage({required this.text, this.isUser = false, this.isAudio = false, this.expenseData});
 }
 
 class _ChatPageState extends State<ChatPage> {
@@ -21,6 +30,7 @@ class _ChatPageState extends State<ChatPage> {
   final int _userId = 1; // Cambia esto según tu lógica de usuario
   final AudioTranscriptionService _transcriptionService = AudioTranscriptionService();
   bool _isLoading = false;
+  List<ChatMessage> _messages = [];
 
   @override
   void initState() {
@@ -29,40 +39,47 @@ class _ChatPageState extends State<ChatPage> {
   }
 
   Future<void> _initRecorder() async {
-    var status = await Permission.microphone.request();
-    if (status != PermissionStatus.granted) {
-      if (mounted) {
+    // Solicita el permiso de micrófono al iniciar
+    var status = await Permission.microphone.status;
+    if (!status.isGranted) {
+      status = await Permission.microphone.request();
+      if (!status.isGranted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Permiso de micrófono denegado. No se puede grabar audio.')),
         );
+        return;
       }
-      throw Exception('Permiso de micrófono denegado');
     }
     await _recorder.openRecorder();
   }
 
   Future<void> _startRecording() async {
-    // Solicita el permiso justo antes de grabar
-    var status = await Permission.microphone.status;
-    if (status != PermissionStatus.granted) {
-      status = await Permission.microphone.request();
-      if (status != PermissionStatus.granted) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Permiso de micrófono denegado. No se puede grabar audio.')),
-          );
+    try {
+      var status = await Permission.microphone.status;
+      if (!status.isGranted) {
+        status = await Permission.microphone.request();
+        if (!status.isGranted) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Permiso de micrófono denegado. No se puede grabar audio.')),
+            );
+          }
+          return;
         }
-        return;
       }
+      await _recorder.openRecorder(); // Asegura que esté abierto
+      final dir = await getApplicationDocumentsDirectory();
+      _recordedPath = '${dir.path}/recording.aac';
+      await _recorder.startRecorder(
+        toFile: _recordedPath,
+        codec: Codec.aacADTS, // Graba en AAC para máxima compatibilidad
+      );
+      setState(() => _isRecording = true);
+      print('Grabando en formato AAC...');
+    } catch (e) {
+      print('Error al iniciar la grabación: $e');
+      setState(() => _isRecording = false);
     }
-    final dir = await getApplicationDocumentsDirectory();
-    _recordedPath = '${dir.path}/recording.wav';
-    await _recorder.startRecorder(
-      toFile: _recordedPath,
-      codec: Codec.pcm16WAV,
-      sampleRate: 16000, // <-- Sample rate ajustado a 16000 Hz
-    );
-    setState(() => _isRecording = true);
   }
 
   Future<String?> _copyRecordingToDownloads(String privatePath) async {
@@ -84,46 +101,133 @@ class _ChatPageState extends State<ChatPage> {
   }
 
   Future<void> _stopRecording() async {
-    await _recorder.stopRecorder();
-    if (!mounted) return;
-    setState(() => _isRecording = false);
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Audio grabado en: $_recordedPath')),
-    );
-    if (_recordedPath != null) {
-      print('Ruta del archivo grabado: $_recordedPath');
-      final file = File(_recordedPath!);
-      print('Tamaño del archivo: \\n${await file.length()} bytes');
-      // Copiar a carpeta pública
-      final publicPath = await _copyRecordingToDownloads(_recordedPath!);
-      if (publicPath != null) {
-        print('Puedes extraer el archivo con: adb pull $publicPath <destino>');
-      } else {
-        print('No se pudo copiar el archivo a carpeta pública');
-      }
-      setState(() { _isLoading = true; });
-      try {
-        final result = await _transcriptionService.transcribeAudio(audioFile: file, userId: _userId);
-        print('Transcripción recibida:\n${result['transcription'] ?? result['error'] ?? 'Sin respuesta'}');
+    try {
+      // Forzar al menos 2 segundos de grabación para pruebas
+      await Future.delayed(const Duration(seconds: 2));
+      await _recorder.stopRecorder();
+      setState(() => _isRecording = false);
+      if (_recordedPath != null) {
+        print('Ruta del archivo grabado: $_recordedPath');
+        final file = File(_recordedPath!);
+        final length = await file.length();
+        print('Tamaño del archivo: $length bytes');
+        if (length <= 44) {
+          print('Advertencia: El archivo está vacío. Verifica el micrófono y los permisos.');
+        }
+        // Copiar a carpeta pública
+        final publicPath = await _copyRecordingToDownloads(_recordedPath!);
+        if (publicPath != null) {
+          print('Puedes extraer el archivo con: adb pull $publicPath <destino>');
+        } else {
+          print('No se pudo copiar el archivo a carpeta pública');
+        }
+        setState(() { _isLoading = true; });
+        // Agrega mensaje de audio enviado
         setState(() {
-          _transcriptionResult = result['transcription'] ?? result['error'] ?? 'Sin respuesta';
+          _messages.add(ChatMessage(
+            text: 'Audio enviado',
+            isUser: true,
+            isAudio: true,
+          ));
         });
-      } catch (e) {
-        print('Error en la transcripción: $e');
-        setState(() {
-          _transcriptionResult = 'Error en la transcripción';
-        });
-      } finally {
-        setState(() { _isLoading = false; });
+        try {
+          final result = await _transcriptionService.transcribeAudio(audioFile: file, userId: _userId);
+          final transcription = result['transcription'];
+          print('Transcripción recibida:\n${transcription ?? result['error'] ?? 'Sin respuesta'}');
+          // Si es gasto, muestra bonito
+          if (transcription is Map<String, dynamic> || (transcription is Map)) {
+            setState(() {
+              _messages.add(ChatMessage(
+                text: '',
+                isUser: false,
+                expenseData: Map<String, dynamic>.from(transcription),
+              ));
+            });
+          } else {
+            setState(() {
+              _messages.add(ChatMessage(
+                text: transcription is String ? transcription : jsonEncode(transcription ?? result['error'] ?? 'Sin respuesta'),
+                isUser: false,
+              ));
+            });
+          }
+        } catch (e) {
+          print('Error en la transcripción: $e');
+          setState(() {
+            _messages.add(ChatMessage(
+              text: 'Error en la transcripción',
+              isUser: false,
+            ));
+          });
+        } finally {
+          setState(() { _isLoading = false; });
+        }
       }
+    } catch (e) {
+      print('Error al detener la grabación: $e');
+      setState(() => _isRecording = false);
     }
   }
 
-  @override
-  void dispose() {
-    _recorder.closeRecorder();
-    _messageController.dispose();
-    super.dispose();
+  Widget _buildChatBubble(ChatMessage message) {
+    if (message.isAudio && message.isUser) {
+      return Align(
+        alignment: Alignment.centerRight,
+        child: Container(
+          margin: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
+          padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 16),
+          decoration: BoxDecoration(
+            color: Colors.blue.shade100,
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: const [
+              Icon(Icons.mic, color: Colors.blue),
+              SizedBox(width: 8),
+              Text('Audio enviado', style: TextStyle(fontWeight: FontWeight.bold)),
+            ],
+          ),
+        ),
+      );
+    } else if (message.expenseData != null) {
+      final data = message.expenseData!;
+      return Align(
+        alignment: Alignment.centerLeft,
+        child: Container(
+          margin: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
+          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+          decoration: BoxDecoration(
+            color: Colors.green.shade50,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: Colors.green.shade200),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('✅ Gasto añadido', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.green)),
+              const SizedBox(height: 4),
+              Text('Descripción: ${data['description'] ?? '-'}'),
+              Text('Cantidad: ${data['amount'] ?? '-'}'),
+              Text('Método de pago: ${data['paymentMethod'] ?? '-'}'),
+            ],
+          ),
+        ),
+      );
+    } else {
+      return Align(
+        alignment: message.isUser ? Alignment.centerRight : Alignment.centerLeft,
+        child: Container(
+          margin: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
+          padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 16),
+          decoration: BoxDecoration(
+            color: message.isUser ? Colors.blue.shade100 : Colors.grey.shade200,
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: Text(message.text),
+        ),
+      );
+    }
   }
 
   @override
@@ -134,41 +238,15 @@ class _ChatPageState extends State<ChatPage> {
         children: [
           Column(
             children: [
-              if (_transcriptionResult != null)
-                Padding(
-                  padding: const EdgeInsets.all(8.0),
-                  child: Text('Transcripción:\n$_transcriptionResult'),
-                ),
-
-              // Chat messages area (currently empty)
               Expanded(
-                child: Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const Text("Your chat history will appear here"),
-                      const SizedBox(height: 20),
-                      // Recording indicator
-                      if (_isRecording)
-                        const Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(Icons.mic, color: Colors.red),
-                            SizedBox(width: 8),
-                            Text("Recording audio...",
-                              style: TextStyle(
-                                color: Colors.red,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ],
-                        ),
-                    ],
-                  ),
+                child: ListView.builder(
+                  reverse: false,
+                  itemCount: _messages.length,
+                  itemBuilder: (context, index) {
+                    return _buildChatBubble(_messages[index]);
+                  },
                 ),
               ),
-
-              // Bottom input section
               _buildInputSection(),
             ],
           ),

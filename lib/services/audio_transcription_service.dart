@@ -5,7 +5,7 @@ import 'package:http_parser/http_parser.dart';
 
 class AudioTranscriptionService {
   final String baseUrl;
-  AudioTranscriptionService({this.baseUrl = 'http://10.0.2.2:5000'});
+  AudioTranscriptionService({this.baseUrl = 'http://192.168.18.5:5000'});
 
   Future<Map<String, dynamic>> transcribeAudio({
     required File audioFile,
@@ -16,7 +16,7 @@ class AudioTranscriptionService {
       ..files.add(await http.MultipartFile.fromPath(
         'audio',
         audioFile.path,
-        contentType: MediaType('audio', 'wav'),
+        contentType: MediaType('audio', 'aac'),
       ));
     try {
       final streamedResponse = await request.send();
@@ -38,4 +38,3 @@ class AudioTranscriptionService {
     }
   }
 }
-
