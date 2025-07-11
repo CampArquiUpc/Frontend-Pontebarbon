@@ -1,28 +1,32 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:provider/provider.dart';
+import 'package:pontebarbon/providers/user_provider.dart';
 
-class BudgetPage extends StatelessWidget {
+class BudgetPage extends StatefulWidget {
   const BudgetPage({super.key});
 
   @override
+  State<BudgetPage> createState() => _BudgetPageState();
+}
+
+class _BudgetPageState extends State<BudgetPage> {
+  @override
   Widget build(BuildContext context) {
+    final userProvider = Provider.of<UserProvider>(context);
+    final monthlyBudget = userProvider.monthlyBudget;
+
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16.0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Header Title
           _buildHeaderTitle(context),
           const SizedBox(height: 24),
-
-          // Savings Summary Section
-          _buildSavingsSummarySection(context),
+          _buildSavingsSummarySection(context, monthlyBudget),
           const SizedBox(height: 32),
-
-          // Quick Links Section
           _buildQuickLinksSection(context),
           const SizedBox(height: 32),
-
-          // Bottom Buttons
           _buildBottomButtons(context),
           const SizedBox(height: 16),
         ],
@@ -40,7 +44,7 @@ class BudgetPage extends StatelessWidget {
     );
   }
 
-  Widget _buildSavingsSummarySection(BuildContext context) {
+  Widget _buildSavingsSummarySection(BuildContext context, double monthlyBudget) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -52,26 +56,18 @@ class BudgetPage extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 16),
-        LayoutBuilder(
-            builder: (context, constraints) {
-              // Calculate card width based on available space
-              final cardWidth = (constraints.maxWidth - 16) / 3;
-              return Row(
-                children: [
-                  // Total Budget Card
-                  _buildSummaryCard(cardWidth, 'Total Budget', '\$0'),
-                  const SizedBox(width: 8),
-
-                  // Amount Spent Card
-                  _buildSummaryCard(cardWidth, 'Amount Spent', '\$0'),
-                  const SizedBox(width: 8),
-
-                  // Remaining Balance Card
-                  _buildSummaryCard(cardWidth, 'Remaining', '\$0'),
-                ],
-              );
-            }
-        ),
+        LayoutBuilder(builder: (context, constraints) {
+          final cardWidth = (constraints.maxWidth - 16) / 3;
+          return Row(
+            children: [
+              _buildSummaryCard(cardWidth, 'Total Budget', '\$${monthlyBudget.toStringAsFixed(2)}'),
+              const SizedBox(width: 8),
+              _buildSummaryCard(cardWidth, 'Amount Spent', '\$0'),
+              const SizedBox(width: 8),
+              _buildSummaryCard(cardWidth, 'Remaining', '\$${monthlyBudget.toStringAsFixed(2)}'),
+            ],
+          );
+        }),
       ],
     );
   }
@@ -122,78 +118,71 @@ class BudgetPage extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 16),
-        LayoutBuilder(
-            builder: (context, constraints) {
-              // Make grid responsive based on screen width
-              return GridView.builder(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 2,
-                  crossAxisSpacing: 10,
-                  mainAxisSpacing: 10,
-                  // Dynamically calculate height based on content
-                  childAspectRatio: constraints.maxWidth / (2 * 140),
-                ),
-                itemCount: 4,
-                itemBuilder: (context, index) {
-                  switch (index) {
-                    case 0:
-                      return _buildQuickLinkCard(
-                        context,
-                        'Edit Monthly Budget',
-                        'Tap to modify your budget.',
-                        Icons.edit,
-                        Colors.blue,
-                      );
-                    case 1:
-                      return _buildQuickLinkCard(
-                        context,
-                        'Savings Goals',
-                        'Set new savings targets.',
-                        Icons.savings,
-                        Colors.green,
-                      );
-                    case 2:
-                      return _buildQuickLinkCard(
-                        context,
-                        'Recent Expenses',
-                        'Check where your money went.',
-                        Icons.receipt_long,
-                        Colors.orange,
-                      );
-                    case 3:
-                      return _buildQuickLinkCard(
-                        context,
-                        'Financial Goals',
-                        'See how close you are to your targets.',
-                        Icons.insert_chart,
-                        Colors.purple,
-                      );
-                    default:
-                      return const SizedBox();
-                  }
-                },
-              );
-            }
-        ),
+        LayoutBuilder(builder: (context, constraints) {
+          return GridView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 2,
+              crossAxisSpacing: 10,
+              mainAxisSpacing: 10,
+              childAspectRatio: constraints.maxWidth / (2 * 140),
+            ),
+            itemCount: 4,
+            itemBuilder: (context, index) {
+              switch (index) {
+                case 0:
+                  return _buildQuickLinkCard(
+                    context,
+                    'Edit Monthly Budget',
+                    'Tap to modify your budget.',
+                    Icons.edit,
+                    Colors.blue,
+                        () => _showBudgetDialog(context),
+                  );
+                case 1:
+                  return _buildQuickLinkCard(
+                    context,
+                    'Savings Goals',
+                    'Set new savings targets.',
+                    Icons.savings,
+                    Colors.green,
+                        () {},
+                  );
+                case 2:
+                  return _buildQuickLinkCard(
+                    context,
+                    'Recent Expenses',
+                    'Check where your money went.',
+                    Icons.receipt_long,
+                    Colors.orange,
+                        () {},
+                  );
+                case 3:
+                  return _buildQuickLinkCard(
+                    context,
+                    'Financial Goals',
+                    'See how close you are to your targets.',
+                    Icons.insert_chart,
+                    Colors.purple,
+                        () {},
+                  );
+                default:
+                  return const SizedBox();
+              }
+            },
+          );
+        }),
       ],
     );
   }
 
-  Widget _buildQuickLinkCard(
-      BuildContext context,
-      String title,
-      String subtitle,
-      IconData icon,
-      Color iconColor,
-      ) {
+  Widget _buildQuickLinkCard(BuildContext context, String title, String subtitle,
+      IconData icon, Color iconColor, VoidCallback onTap) {
     return Card(
       elevation: 2,
       child: InkWell(
-        onTap: () {
-          // Functionality will be added later
-        },
+        onTap: onTap,
         child: Padding(
           padding: const EdgeInsets.all(12.0),
           child: Column(
@@ -230,16 +219,76 @@ class BudgetPage extends StatelessWidget {
     );
   }
 
+  void _showBudgetDialog(BuildContext context) {
+    final userProvider = Provider.of<UserProvider>(context, listen: false);
+    final TextEditingController budgetController = TextEditingController();
+    budgetController.text = userProvider.monthlyBudget.toString();
+
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Edit Monthly Budget'),
+          content: TextField(
+            controller: budgetController,
+            keyboardType:
+            const TextInputType.numberWithOptions(decimal: true),
+            inputFormatters: [
+              FilteringTextInputFormatter.allow(RegExp(r'^\d+\.?\d{0,2}')),
+            ],
+            decoration: const InputDecoration(
+              labelText: 'Budget Amount',
+              prefixText: '\$',
+              border: OutlineInputBorder(),
+              hintText: 'Enter your monthly budget',
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () {
+                final value = budgetController.text.trim();
+                if (value.isEmpty) return;
+                try {
+                  final double budget = double.parse(value);
+                  if (budget >= 0) {
+                    userProvider.updateMonthlyBudget(budget);
+                    Navigator.of(context).pop();
+                  } else {
+                    _showErrorSnackBar(context, 'Budget must be positive');
+                  }
+                } catch (_) {
+                  _showErrorSnackBar(context, 'Invalid input');
+                }
+              },
+              child: const Text('Save'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  void _showErrorSnackBar(BuildContext context, String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: Colors.red,
+        duration: const Duration(seconds: 2),
+      ),
+    );
+  }
+
   Widget _buildBottomButtons(BuildContext context) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        // View Report Button
         Expanded(
           child: OutlinedButton(
-            onPressed: () {
-              // Functionality will be added later
-            },
+            onPressed: () {},
             style: OutlinedButton.styleFrom(
               side: const BorderSide(color: Colors.blue),
               padding: const EdgeInsets.symmetric(vertical: 16),
@@ -254,13 +303,9 @@ class BudgetPage extends StatelessWidget {
           ),
         ),
         const SizedBox(width: 16),
-
-        // Add Expense Button
         Expanded(
           child: ElevatedButton(
-            onPressed: () {
-              // Functionality will be added later
-            },
+            onPressed: () {},
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.blue,
               foregroundColor: Colors.white,

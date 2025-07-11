@@ -16,7 +16,7 @@ class DatabaseHelper {
 
     return openDatabase(
       path,
-      version: 2,
+      version: 3,
       onCreate: (db, version) async {
         await db.execute('''
           CREATE TABLE users (
@@ -40,6 +40,9 @@ class DatabaseHelper {
           await db.execute('ALTER TABLE users ADD COLUMN isSaving INTEGER');
           await db.execute('ALTER TABLE users ADD COLUMN incomeRange TEXT');
           await db.execute('ALTER TABLE users ADD COLUMN financialGoals TEXT');
+        }
+        if (oldVersion < 3) {
+          await db.execute('ALTER TABLE users ADD COLUMN monthlyBudget REAL DEFAULT 0');
         }
       },
     );

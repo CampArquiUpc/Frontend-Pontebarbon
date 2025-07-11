@@ -63,46 +63,32 @@ class _LoginScreenState extends State<LoginScreen> {
         if (!mounted) return; // Check if still mounted after async operation
 
         if (isValid) {
-          // Get user data for the logged-in user
-          final db = await _databaseHelper.database;
-          final users = await db.query(
-            'users',
-            where: 'email = ?',
-            whereArgs: [_emailController.text.trim()],
-          );
+          final email = _emailController.text.trim();
+
+          // Get user provider
+          final userProvider = Provider.of<UserProvider>(context, listen: false);
+
+          // Load all user data including monthly budget
+          await userProvider.loadUser(email);
 
           if (!mounted) return; // Check after another async operation
 
-          if (users.isNotEmpty) {
-            final userData = users.first;
-            final fullName = userData['fullName'] as String?;
-            final email = userData['email'] as String?;
-
-            // Update the user provider with the logged-in user's data
-            Provider.of<UserProvider>(context, listen: false)
-                .setUserData(fullName: fullName, email: email);
-
-            if (fullName != null && fullName.isNotEmpty) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text('Welcome back, $fullName!'),
-                  backgroundColor: Colors.green,
-                ),
-              );
-            }
-
-            // Navigate to home page with user data
-            Navigator.of(context).pushReplacement(
-              MaterialPageRoute(
-                builder: (context) => HomePage(),
+          // Show welcome message
+          if (userProvider.fullName != null && userProvider.fullName!.isNotEmpty) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Welcome back, ${userProvider.fullName}!'),
+                backgroundColor: Colors.green,
               ),
             );
-          } else {
-            // Navigate without user data (fallback)
-            Navigator.of(context).pushReplacement(
-              MaterialPageRoute(builder: (context) => const HomePage()),
-            );
           }
+
+          // Navigate to home page
+          Navigator.of(context).pushReplacement(
+            MaterialPageRoute(
+              builder: (context) => HomePage(),
+            ),
+          );
         } else {
           // Show error for invalid credentials
           _showErrorSnackBar('Invalid email or password');

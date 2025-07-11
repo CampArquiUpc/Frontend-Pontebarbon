@@ -150,6 +150,9 @@ class _HomePageState extends State<HomePage> {
   }
 
   Widget _buildFinancialSnapshotSection() {
+    final userProvider = Provider.of<UserProvider>(context);
+    final monthlyBudget = userProvider.monthlyBudget;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -196,7 +199,7 @@ class _HomePageState extends State<HomePage> {
             ),
             const SizedBox(width: 12),
 
-            // Remaining Budget Card
+            // Remaining Budget Card (ACTUALIZADO)
             Expanded(
               child: Card(
                 elevation: 2,
@@ -213,7 +216,7 @@ class _HomePageState extends State<HomePage> {
                       ),
                       const SizedBox(height: 8),
                       Text(
-                        '\$0',
+                        '\$${monthlyBudget.toStringAsFixed(2)}',
                         style: TextStyle(
                           fontSize: 24,
                           fontWeight: FontWeight.bold,
