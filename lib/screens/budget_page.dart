@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:pontebarbon/providers/user_provider.dart';
+import 'package:pontebarbon/models/expense_model.dart';
 
 class BudgetPage extends StatefulWidget {
   const BudgetPage({super.key});
@@ -11,6 +12,14 @@ class BudgetPage extends StatefulWidget {
 }
 
 class _BudgetPageState extends State<BudgetPage> {
+  final TextEditingController _budgetController = TextEditingController();
+
+  @override
+  void dispose() {
+    _budgetController.dispose();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
     final userProvider = Provider.of<UserProvider>(context);
@@ -45,6 +54,10 @@ class _BudgetPageState extends State<BudgetPage> {
   }
 
   Widget _buildSavingsSummarySection(BuildContext context, double monthlyBudget) {
+    final userProvider = Provider.of<UserProvider>(context);
+    final totalExpenses = userProvider.totalExpenses;
+    final remainingBudget = userProvider.remainingBudget;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -62,9 +75,9 @@ class _BudgetPageState extends State<BudgetPage> {
             children: [
               _buildSummaryCard(cardWidth, 'Total Budget', '\$${monthlyBudget.toStringAsFixed(2)}'),
               const SizedBox(width: 8),
-              _buildSummaryCard(cardWidth, 'Amount Spent', '\$0'),
+              _buildSummaryCard(cardWidth, 'Amount Spent', '\$${totalExpenses.toStringAsFixed(2)}'),
               const SizedBox(width: 8),
-              _buildSummaryCard(cardWidth, 'Remaining', '\$${monthlyBudget.toStringAsFixed(2)}'),
+              _buildSummaryCard(cardWidth, 'Remaining', '\$${remainingBudget.toStringAsFixed(2)}'),
             ],
           );
         }),
@@ -130,46 +143,30 @@ class _BudgetPageState extends State<BudgetPage> {
             ),
             itemCount: 4,
             itemBuilder: (context, index) {
-              switch (index) {
-                case 0:
-                  return _buildQuickLinkCard(
-                    context,
-                    'Edit Monthly Budget',
-                    'Tap to modify your budget.',
-                    Icons.edit,
-                    Colors.blue,
-                        () => _showBudgetDialog(context),
-                  );
-                case 1:
-                  return _buildQuickLinkCard(
-                    context,
-                    'Savings Goals',
-                    'Set new savings targets.',
-                    Icons.savings,
-                    Colors.green,
-                        () {},
-                  );
-                case 2:
-                  return _buildQuickLinkCard(
-                    context,
-                    'Recent Expenses',
-                    'Check where your money went.',
-                    Icons.receipt_long,
-                    Colors.orange,
-                        () {},
-                  );
-                case 3:
-                  return _buildQuickLinkCard(
-                    context,
-                    'Financial Goals',
-                    'See how close you are to your targets.',
-                    Icons.insert_chart,
-                    Colors.purple,
-                        () {},
-                  );
-                default:
-                  return const SizedBox();
-              }
+              final items = [
+                {'title': 'Add Expense', 'icon': Icons.add_circle_outline, 'color': Colors.red},
+                {'title': 'View History', 'icon': Icons.history, 'color': Colors.blue},
+                {'title': 'Set Budget', 'icon': Icons.account_balance_wallet, 'color': Colors.green},
+                {'title': 'Analytics', 'icon': Icons.pie_chart, 'color': Colors.purple},
+              ];
+
+              return _buildQuickLinkCard(
+                context,
+                items[index]['title'] as String,
+                items[index]['icon'] as IconData,
+                items[index]['color'] as Color,
+                onTap: () {
+                  if (index == 0) {
+                    _showAddExpenseDialog(context);
+                  } else if (index == 1) {
+                    _showExpenseHistoryDialog(context);
+                  } else if (index == 2) {
+                    _showSetBudgetDialog(context);
+                  } else if (index == 3) {
+                    _showAnalyticsDialog(context);
+                  }
+                },
+              );
             },
           );
         }),
@@ -177,150 +174,317 @@ class _BudgetPageState extends State<BudgetPage> {
     );
   }
 
-  Widget _buildQuickLinkCard(BuildContext context, String title, String subtitle,
-      IconData icon, Color iconColor, VoidCallback onTap) {
+  Widget _buildQuickLinkCard(
+      BuildContext context,
+      String title,
+      IconData icon,
+      Color color, {
+        required VoidCallback onTap,
+      }) {
     return Card(
       elevation: 2,
       child: InkWell(
         onTap: onTap,
         child: Padding(
-          padding: const EdgeInsets.all(12.0),
+          padding: const EdgeInsets.all(16.0),
           child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.center,
+            mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(icon, size: 32, color: iconColor),
-              const SizedBox(height: 8),
+              Icon(
+                icon,
+                size: 48,
+                color: color,
+              ),
+              const SizedBox(height: 12),
               Text(
                 title,
                 style: const TextStyle(
+                  fontSize: 16,
                   fontWeight: FontWeight.bold,
-                  fontSize: 15,
                 ),
                 textAlign: TextAlign.center,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-              const SizedBox(height: 4),
-              Text(
-                subtitle,
-                style: TextStyle(
-                  fontSize: 12,
-                  color: Colors.grey.shade600,
-                ),
-                textAlign: TextAlign.center,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
               ),
             ],
           ),
         ),
-      ),
-    );
-  }
-
-  void _showBudgetDialog(BuildContext context) {
-    final userProvider = Provider.of<UserProvider>(context, listen: false);
-    final TextEditingController budgetController = TextEditingController();
-    budgetController.text = userProvider.monthlyBudget.toString();
-
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: const Text('Edit Monthly Budget'),
-          content: TextField(
-            controller: budgetController,
-            keyboardType:
-            const TextInputType.numberWithOptions(decimal: true),
-            inputFormatters: [
-              FilteringTextInputFormatter.allow(RegExp(r'^\d+\.?\d{0,2}')),
-            ],
-            decoration: const InputDecoration(
-              labelText: 'Budget Amount',
-              prefixText: '\$',
-              border: OutlineInputBorder(),
-              hintText: 'Enter your monthly budget',
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('Cancel'),
-            ),
-            TextButton(
-              onPressed: () {
-                final value = budgetController.text.trim();
-                if (value.isEmpty) return;
-                try {
-                  final double budget = double.parse(value);
-                  if (budget >= 0) {
-                    userProvider.updateMonthlyBudget(budget);
-                    Navigator.of(context).pop();
-                  } else {
-                    _showErrorSnackBar(context, 'Budget must be positive');
-                  }
-                } catch (_) {
-                  _showErrorSnackBar(context, 'Invalid input');
-                }
-              },
-              child: const Text('Save'),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
-  void _showErrorSnackBar(BuildContext context, String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        backgroundColor: Colors.red,
-        duration: const Duration(seconds: 2),
       ),
     );
   }
 
   Widget _buildBottomButtons(BuildContext context) {
     return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
+      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
       children: [
-        Expanded(
-          child: OutlinedButton(
-            onPressed: () {},
-            style: OutlinedButton.styleFrom(
-              side: const BorderSide(color: Colors.blue),
-              padding: const EdgeInsets.symmetric(vertical: 16),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
-              ),
-            ),
-            child: const Text(
-              'View Report',
-              style: TextStyle(fontSize: 16),
-            ),
+        ElevatedButton.icon(
+          onPressed: () => _showAddExpenseDialog(context),
+          icon: const Icon(Icons.add),
+          label: const Text('Add Expense'),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: Theme.of(context).primaryColor,
+            foregroundColor: Colors.white,
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
           ),
         ),
-        const SizedBox(width: 16),
-        Expanded(
-          child: ElevatedButton(
-            onPressed: () {},
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.blue,
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(vertical: 16),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
-              ),
-            ),
-            child: const Text(
-              'Add Expense',
-              style: TextStyle(fontSize: 16),
-            ),
+        ElevatedButton.icon(
+          onPressed: () => _showSetBudgetDialog(context),
+          icon: const Icon(Icons.edit),
+          label: const Text('Update Budget'),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: Colors.green,
+            foregroundColor: Colors.white,
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
           ),
         ),
       ],
+    );
+  }
+
+  void _showAddExpenseDialog(BuildContext context) {
+    final descriptionController = TextEditingController();
+    final amountController = TextEditingController();
+    DateTime selectedDate = DateTime.now();
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Add New Expense'),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: descriptionController,
+                decoration: const InputDecoration(
+                  labelText: 'Description',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: amountController,
+                decoration: const InputDecoration(
+                  labelText: 'Amount (\$)',
+                  border: OutlineInputBorder(),
+                ),
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                inputFormatters: [
+                  FilteringTextInputFormatter.allow(RegExp(r'^\d+\.?\d{0,2}')),
+                ],
+              ),
+              const SizedBox(height: 16),
+              ListTile(
+                title: const Text('Date'),
+                subtitle: Text(
+                  '${selectedDate.day}/${selectedDate.month}/${selectedDate.year}',
+                ),
+                trailing: const Icon(Icons.calendar_today),
+                onTap: () async {
+                  final DateTime? picked = await showDatePicker(
+                    context: context,
+                    initialDate: selectedDate,
+                    firstDate: DateTime(2020),
+                    lastDate: DateTime.now(),
+                  );
+                  if (picked != null && picked != selectedDate) {
+                    // Handle date change
+                    selectedDate = picked;
+                    // Need setState if this was in a StatefulWidget
+                  }
+                },
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              // Validate inputs
+              if (descriptionController.text.isEmpty || amountController.text.isEmpty) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Please fill all fields')),
+                );
+                return;
+              }
+
+              // Parse amount
+              final amount = double.tryParse(amountController.text);
+              if (amount == null) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Please enter a valid amount')),
+                );
+                return;
+              }
+
+              // Create expense object
+              final expense = ExpenseModel(
+                description: descriptionController.text,
+                amount: amount,
+                date: selectedDate,
+              );
+
+              // TODO: Save expense to database or provider
+
+              // Close dialog
+              Navigator.pop(context);
+
+              // Show confirmation
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Expense added successfully')),
+              );
+            },
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showExpenseHistoryDialog(BuildContext context) {
+    // This would typically fetch expenses from a database or provider
+    final List<ExpenseModel> expenses = [
+      // Example data
+      ExpenseModel(
+        description: 'Groceries',
+        amount: 45.99,
+        date: DateTime.now().subtract(const Duration(days: 2)),
+      ),
+      ExpenseModel(
+        description: 'Dinner',
+        amount: 32.50,
+        date: DateTime.now().subtract(const Duration(days: 1)),
+      ),
+    ];
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Expense History'),
+        content: SizedBox(
+          width: double.maxFinite,
+          child: ListView.builder(
+            shrinkWrap: true,
+            itemCount: expenses.length,
+            itemBuilder: (context, index) {
+              final expense = expenses[index];
+              return ListTile(
+                title: Text(expense.description),
+                subtitle: Text(
+                  '${expense.date.day}/${expense.date.month}/${expense.date.year}',
+                ),
+                trailing: Text(
+                  '\$${expense.amount.toStringAsFixed(2)}',
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+        actions: [
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Close'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showSetBudgetDialog(BuildContext context) {
+    final userProvider = Provider.of<UserProvider>(context, listen: false);
+    _budgetController.text = userProvider.monthlyBudget.toString();
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Set Monthly Budget'),
+        content: TextField(
+          controller: _budgetController,
+          decoration: const InputDecoration(
+            labelText: 'Monthly Budget (\$)',
+            border: OutlineInputBorder(),
+          ),
+          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+          inputFormatters: [
+            FilteringTextInputFormatter.allow(RegExp(r'^\d+\.?\d{0,2}')),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              final budgetText = _budgetController.text.trim();
+              if (budgetText.isEmpty) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Please enter a budget amount')),
+                );
+                return;
+              }
+
+              final budget = double.tryParse(budgetText);
+              if (budget == null || budget < 0) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Please enter a valid budget amount')),
+                );
+                return;
+              }
+
+              // Update budget in provider
+              userProvider.updateMonthlyBudget(budget);
+
+              Navigator.pop(context);
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Budget updated successfully')),
+              );
+            },
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showAnalyticsDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Expense Analytics'),
+        content: SizedBox(
+          width: double.maxFinite,
+          height: 300,
+          child: Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  Icons.bar_chart,
+                  size: 80,
+                  color: Colors.grey.shade400,
+                ),
+                const SizedBox(height: 16),
+                const Text(
+                  'Analytics feature coming soon!',
+                  style: TextStyle(fontSize: 16),
+                ),
+              ],
+            ),
+          ),
+        ),
+        actions: [
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Close'),
+          ),
+        ],
+      ),
     );
   }
 }

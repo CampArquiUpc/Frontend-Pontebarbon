@@ -1,5 +1,6 @@
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
+import 'package:pontebarbon/models/expense_model.dart';
 
 class DatabaseHelper {
   static Database? _database;
@@ -16,7 +17,7 @@ class DatabaseHelper {
 
     return openDatabase(
       path,
-      version: 3,
+      version: 4,
       onCreate: (db, version) async {
         await db.execute('''
           CREATE TABLE users (
@@ -31,6 +32,18 @@ class DatabaseHelper {
             financialGoals TEXT
           )
         ''');
+
+        // Create expenses table
+        await db.execute('''
+          CREATE TABLE expenses (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            userEmail TEXT NOT NULL,
+            description TEXT NOT NULL,
+            amount REAL NOT NULL,
+            date TEXT NOT NULL,
+            FOREIGN KEY (userEmail) REFERENCES users (email)
+          )
+        ''');
       },
       onUpgrade: (db, oldVersion, newVersion) async {
         if (oldVersion < 2) {
@@ -43,6 +56,19 @@ class DatabaseHelper {
         }
         if (oldVersion < 3) {
           await db.execute('ALTER TABLE users ADD COLUMN monthlyBudget REAL DEFAULT 0');
+        }
+        if (oldVersion < 4) {
+          // Create expenses table in upgrade path
+          await db.execute('''
+          CREATE TABLE expenses (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            userEmail TEXT NOT NULL,
+            description TEXT NOT NULL,
+            amount REAL NOT NULL,
+            date TEXT NOT NULL,
+            FOREIGN KEY (userEmail) REFERENCES users (email)
+          )
+        ''');
         }
       },
     );
@@ -86,5 +112,48 @@ class DatabaseHelper {
       return results.first;
     }
     return null;
+  }
+
+  // New methods for expense management
+  Future<int> insertExpense(ExpenseModel expense) async {
+    final db = await database;
+    return await db.insert('expenses', expense.toMap());
+  }
+
+  Future<List<ExpenseModel>> getExpensesByUser(String email) async {
+    final db = await database;
+    final results = await db.query(
+      'expenses',
+      where: 'userEmail = ?',
+      whereArgs: [email],
+      orderBy: 'date DESC',
+    );
+
+    return results.map((map) => ExpenseModel.fromMap(map)).toList();
+  }
+
+  Future<double> getTotalExpensesByUser(String email) async {
+    final db = await database;
+    final result = await db.rawQuery(
+        'SELECT SUM(amount) as total FROM expenses WHERE userEmail = ?',
+        [email]
+    );
+
+    // If there are no expenses or result is null, return 0
+    if (result.isEmpty || result[0]['total'] == null) {
+      return 0.0;
+    }
+
+    // Convert the result to double
+    return (result[0]['total'] as num).toDouble();
+  }
+
+  Future<int> deleteExpense(int id) async {
+    final db = await database;
+    return await db.delete(
+      'expenses',
+      where: 'id = ?',
+      whereArgs: [id],
+    );
   }
 }
