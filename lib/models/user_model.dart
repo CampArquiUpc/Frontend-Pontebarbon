@@ -9,6 +9,7 @@ class UserModel {
   bool? isSaving;
   String? incomeRange;
   List<String>? financialGoals;
+  double monthlyBudget;
 
   UserModel({
     this.fullName,
@@ -19,6 +20,7 @@ class UserModel {
     this.isSaving,
     this.incomeRange,
     this.financialGoals,
+    this.monthlyBudget = 0.0,
   });
 
   // Convert to a map for database storage
@@ -32,6 +34,7 @@ class UserModel {
       'isSaving': isSaving == true ? 1 : 0,
       'incomeRange': incomeRange,
       'financialGoals': financialGoals?.join(','),
+      'monthlyBudget': monthlyBudget,
     };
   }
 
@@ -48,6 +51,9 @@ class UserModel {
       isSaving: map['isSaving'] == 1,
       incomeRange: map['incomeRange'],
       financialGoals: map['financialGoals']?.split(','),
+      monthlyBudget: map['monthlyBudget'] != null
+          ? (map['monthlyBudget'] as num).toDouble()
+          : 0.0,
     );
   }
 }
