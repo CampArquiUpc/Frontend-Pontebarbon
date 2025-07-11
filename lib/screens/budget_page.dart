@@ -3,6 +3,8 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:pontebarbon/providers/user_provider.dart';
 import 'package:pontebarbon/models/expense_model.dart';
+import 'package:pontebarbon/services/expense_service.dart';
+import 'package:pontebarbon/services/ml_service.dart';
 
 class BudgetPage extends StatefulWidget {
   const BudgetPage({super.key});
@@ -13,6 +15,48 @@ class BudgetPage extends StatefulWidget {
 
 class _BudgetPageState extends State<BudgetPage> {
   final TextEditingController _budgetController = TextEditingController();
+  List<dynamic> _expenses = [];
+  bool _loadingExpenses = false;
+  Map<String, dynamic>? _mlInsights;
+  bool _loadingML = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadExpenses();
+  }
+
+  Future<void> _loadExpenses() async {
+    setState(() { _loadingExpenses = true; });
+    final service = ExpenseService();
+    try {
+      final expenses = await service.fetchExpenses(4); // Usuario demo 4
+      setState(() {
+        _expenses = expenses;
+      });
+    } catch (e) {
+      // Puedes mostrar un error si lo deseas
+    } finally {
+      setState(() { _loadingExpenses = false; });
+    }
+  }
+
+  Future<void> _loadMLInsights() async {
+    setState(() { _loadingML = true; });
+    final service = MLService();
+    try {
+      final insights = await service.fetchDashboardInsights();
+      setState(() {
+        _mlInsights = insights;
+      });
+    } catch (e) {
+      setState(() {
+        _mlInsights = {'error': 'No se pudo obtener insights'};
+      });
+    } finally {
+      setState(() { _loadingML = false; });
+    }
+  }
 
   @override
   void dispose() {
@@ -36,6 +80,7 @@ class _BudgetPageState extends State<BudgetPage> {
           const SizedBox(height: 32),
           _buildQuickLinksSection(context),
           const SizedBox(height: 32),
+          _buildExpensesList(), // Agrega la lista de gastos
           _buildBottomButtons(context),
           const SizedBox(height: 16),
         ],
@@ -235,6 +280,93 @@ class _BudgetPageState extends State<BudgetPage> {
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
           ),
         ),
+        ElevatedButton.icon(
+          onPressed: () {
+            // Acción para Machine Learning
+            _showMachineLearningDialog(context);
+          },
+          icon: const Icon(Icons.auto_graph),
+          label: const Text('Machine Learning'),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: Colors.deepPurple,
+            foregroundColor: Colors.white,
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+          ),
+        ),
+      ],
+    );
+  }
+
+  void _showMachineLearningDialog(BuildContext context) {
+    _loadMLInsights();
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Machine Learning Insights'),
+        content: SizedBox(
+          width: double.maxFinite,
+          child: _loadingML
+              ? const Center(child: CircularProgressIndicator())
+              : _mlInsights == null
+                  ? const Text('No hay datos de ML.')
+                  : SingleChildScrollView(child: _buildMLInsightsContent(_mlInsights!)),
+        ),
+        actions: [
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cerrar'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMLInsightsContent(Map<String, dynamic> data) {
+    if (data.containsKey('error')) {
+      return Text(data['error']);
+    }
+    final summary = data['summary'] ?? {};
+    final clusters = data['cluster_distribution'] ?? [];
+    final categories = data['top_categories'] ?? [];
+    final quickInsights = data['quick_insights'] ?? [];
+    final savings = data['savings_opportunities'] ?? [];
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('Resumen:', style: TextStyle(fontWeight: FontWeight.bold)),
+        Text('Total gastos: S/. ${summary['total_expenses']}'),
+        Text('Promedio mensual: S/. ${summary['avg_monthly']}'),
+        Text('Transacciones: ${summary['transaction_count']}'),
+        Text('Tipo más usado: ${summary['most_used_type']}'),
+        Text('Score financiero: ${summary['financial_health_score']}'),
+        const SizedBox(height: 12),
+        Text('Clusters:', style: TextStyle(fontWeight: FontWeight.bold)),
+        ...clusters.map<Widget>((c) => Card(
+          color: Color(int.parse(c['color'].substring(1, 7), radix: 16) + 0xFF000000),
+          child: ListTile(
+            leading: Text(c['icon'], style: TextStyle(fontSize: 24)),
+            title: Text(c['cluster_name']),
+            subtitle: Text(c['description']),
+            trailing: Text('Promedio: S/. ${c['avg_amount']}'),
+          ),
+        )),
+        const SizedBox(height: 12),
+        Text('Top categorías:', style: TextStyle(fontWeight: FontWeight.bold)),
+        ...categories.map<Widget>((cat) => ListTile(
+          title: Text(cat['category']),
+          subtitle: Text('Total: S/. ${cat['total_amount']} | Promedio: S/. ${cat['avg_amount']}'),
+          trailing: Text('${cat['percentage']}%'),
+        )),
+        const SizedBox(height: 12),
+        Text('Quick Insights:', style: TextStyle(fontWeight: FontWeight.bold)),
+        ...quickInsights.map<Widget>((qi) => Text(qi)),
+        const SizedBox(height: 12),
+        Text('Oportunidades de ahorro:', style: TextStyle(fontWeight: FontWeight.bold)),
+        ...savings.map<Widget>((s) => ListTile(
+          title: Text(s['category']),
+          subtitle: Text('Actual: S/. ${s['current_amount']} | Potencial ahorro: S/. ${s['potential_savings']}'),
+          trailing: Text(s['recommendation']),
+        )),
       ],
     );
   }
@@ -485,6 +617,37 @@ class _BudgetPageState extends State<BudgetPage> {
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildExpensesList() {
+    if (_loadingExpenses) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    if (_expenses.isEmpty) {
+      return const Text('No hay gastos registrados.');
+    }
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text('Gastos registrados:', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+        const SizedBox(height: 8),
+        ListView.builder(
+          shrinkWrap: true,
+          physics: NeverScrollableScrollPhysics(),
+          itemCount: _expenses.length,
+          itemBuilder: (context, index) {
+            final expense = _expenses[index];
+            return Card(
+              child: ListTile(
+                title: Text(expense['description'] ?? ''),
+                subtitle: Text('Monto: ${expense['amount']} | Fecha: ${expense['dateOfExpense'] ?? ''}'),
+                trailing: Text(expense['type']?.toString() ?? ''),
+              ),
+            );
+          },
+        ),
+      ],
     );
   }
 }
