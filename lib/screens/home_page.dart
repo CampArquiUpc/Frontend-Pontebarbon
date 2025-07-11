@@ -3,6 +3,7 @@ import 'package:pontebarbon/screens/chat_page.dart';
 import 'package:pontebarbon/screens/profile_page.dart';
 import 'package:pontebarbon/providers/user_provider.dart';
 import 'package:provider/provider.dart';
+import 'package:pontebarbon/screens/budget_page.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -36,7 +37,11 @@ class _HomePageState extends State<HomePage> {
     return Scaffold(
       appBar: AppBar(
         automaticallyImplyLeading: false, // Hide the back button
-        title: Text(_currentIndex == 0 ? 'Dashboard' : 'Profile'),
+        title: Text(_currentIndex == 0
+            ? 'Dashboard'
+            : _currentIndex == 1
+            ? 'Budget'
+            : 'Profile'),
         actions: [
           IconButton(
             icon: const Icon(Icons.notifications),
@@ -51,6 +56,8 @@ class _HomePageState extends State<HomePage> {
           ? const Center(child: CircularProgressIndicator())
           : _currentIndex == 0
           ? _buildHomeContent()
+          : _currentIndex == 1
+          ? const BudgetPage()
           : const ProfilePage(),
       bottomNavigationBar: BottomNavigationBar(
         // Use the _currentIndex variable for the current index
@@ -59,6 +66,10 @@ class _HomePageState extends State<HomePage> {
           BottomNavigationBarItem(
             icon: Icon(Icons.home),
             label: 'Home',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.account_balance_wallet),
+            label: 'Budget',
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.person),
@@ -232,6 +243,23 @@ class _HomePageState extends State<HomePage> {
           ),
         ),
         const SizedBox(height: 12),
+
+        // Budgeting Link
+        Card(
+          elevation: 2,
+          child: ListTile(
+            leading: const Icon(Icons.bar_chart, color: Colors.blue),
+            title: const Text('My Budget'),
+            subtitle: const Text('Track your expenses'),
+            trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+            onTap: () {
+              setState(() {
+                _currentIndex = 1; // Switch to the Budget tab
+              });
+            },
+          ),
+        ),
+        const SizedBox(height: 8),
 
         // Chat with AI Link
         Card(
